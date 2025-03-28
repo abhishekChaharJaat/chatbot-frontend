@@ -7,9 +7,9 @@ const App = () => {
   const [incomingMessages, setIncomingMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatContainerRef = useRef(null);  // For auto-scrolling
-
+  // https://chatbot-backend-icqp.onrender.com
   useEffect(() => {
-    const socketInstance = io('http://localhost:8000');
+    const socketInstance = io('https://chatbot-backend-icqp.onrender.com');
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
