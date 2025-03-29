@@ -1,34 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import io from 'socket.io-client';
+import getAIResponse from './getAIResponse'; 
 
 const App = () => {
-  const [socket, setSocket] = useState(null);
   const [message, setMessage] = useState('');
   const [incomingMessages, setIncomingMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatContainerRef = useRef(null);  // For auto-scrolling
-  // https://chatbot-backend-icqp.onrender.com
-  useEffect(() => {
-    // const socketInstance = io('http://localhost:8000');
-    const socketInstance = io("https://chatbot-backend-cb29.onrender.com");
-    setSocket(socketInstance);
-
-    socketInstance.on('connect', () => {
-      console.log('✅ Connected to server');
-    });
-
-    socketInstance.on('message', (msg) => {
-      setIncomingMessages((prevMessages) => [
-        ...prevMessages,
-        { text: msg, sender: 'ai' }
-      ]);
-      setLoading(false);  // Stop loading after AI responds
-    });
-
-    return () => {
-      socketInstance.disconnect();
-    };
-  }, []);
 
   // Auto-scroll to the bottom when new messages arrive
   useEffect(() => {
@@ -37,22 +14,41 @@ const App = () => {
     }
   }, [incomingMessages]);
 
-  const handleSend = () => {
-    if (socket && message.trim()) {
-      socket.emit('message', message);
+  // Handle sending messages and displaying AI responses
+  const handleSend = async () => {
+    if (!message.trim()) return;
 
-      // Add user message to chat
-      setIncomingMessages((prevMessages) => [
-        ...prevMessages,
-        { text: message, sender: 'user' }
+    // Add user message to chat
+    setIncomingMessages((prev) => [
+      ...prev,
+      { text: message, sender: 'user' }
+    ]);
+    setMessage('');
+    setLoading(true);  
+
+    try {
+      // Get AI response
+      const aiResponse = await getAIResponse(message);
+      console.log('🤖 AI Response:', aiResponse);
+
+      // Add AI message to chat
+      setIncomingMessages((prev) => [
+        ...prev,
+        { text: aiResponse, sender: 'ai' }
       ]);
 
-      setMessage('');
-      setLoading(true);  // Show loading indicator
+    } catch (error) {
+      console.error('❌ Error:', error);
+      setIncomingMessages((prev) => [
+        ...prev,
+        { text: '⚠️ Failed to fetch AI response.', sender: 'ai' }
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle "Enter" key press to send message
+  // Handle "Enter" key press
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !loading) {
       handleSend();
@@ -62,7 +58,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center md:p-5">
       <h1 className="text-xl md:text-3xl font-bold italic flex items-center justify-center h-[50px] text-center bg-white">
-       Let's Talk with Abhishek's AI Chatbot
+        🗨️ Let's Talk with Abhishek's AI Chatbot
       </h1>
 
       {/* Chat Container */}
@@ -78,10 +74,10 @@ const App = () => {
           {incomingMessages.map((msg, index) => (
             <div
               key={index}
-              className={`px-4 py-2 my-2 w-fit flex items-center justify-center max-w-[70%] rounded-lg shadow-md ${
+              className={`px-4 py-2 my-2 w-fit max-w-[70%] rounded-lg shadow-md ${
                 msg.sender === 'user'
-                  ? 'bg-blue-500 text-white my-auto ml-auto text-end'
-                  : 'bg-gray-300 text-black mr-auto'
+                  ? 'bg-blue-500 text-white ml-auto text-end'  // User message on the right
+                  : 'bg-gray-300 text-black mr-auto'          // AI message on the left
               }`}
               style={{ wordWrap: 'break-word' }}
             >
@@ -91,7 +87,7 @@ const App = () => {
 
           {/* Loading Indicator */}
           {loading && (
-            <div className="flex items-center my-2">
+            <div className="flex items-center my-2 ">
               <div className="animate-pulse text-gray-500">🤖 Typing...</div>
             </div>
           )}
@@ -103,16 +99,17 @@ const App = () => {
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyPress}   // Listen for "Enter" key press
+            onKeyDown={handleKeyPress}
             className="flex-grow p-2 border rounded-md focus:outline-none"
             placeholder="Type your message..."
           />
           <button
             onClick={handleSend}
-            className="bg-blue-500 text-white p-2 rounded-md 
-                      hover:bg-blue-600 transition w-24"
+            className={`bg-blue-500 text-white p-2 rounded-md 
+                      hover:bg-blue-600 transition w-24 ${loading ? 'opacity-50' : ''}`}
+            disabled={loading}
           >
-            Send
+            {loading ? 'Sending...' : 'Send'}
           </button>
         </div>
       </div>
